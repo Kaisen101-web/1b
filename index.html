@@ -1,0 +1,338 @@
+<form id="registrationForm">
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" required>
+    </div>
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required>
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required>
+    </div>
+    <div class="form-group">
+      <label for="confirmPassword">Confirm Password</label>
+      <input type="password" id="confirmPassword" name="confirmPassword" required>
+    </div>
+    <button type="submit" id="registerBtn">Register</button>
+  </form>
+  <div id="message"></div>
+  
+  <!-- Table to display registered users -->
+  <div class="user-table-container">
+    <h3>Registered Users</h3>
+    <table id="userTable">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Registration Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+        <!-- User data will be inserted here -->
+      </tbody>
+    </table>
+  </div>
+  */
+  
+  // User Registration System
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize users array from localStorage or create empty array
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    
+    // Display existing users on page load
+    displayUsers();
+    
+    // Register form submission event
+    const registrationForm = document.getElementById('registrationForm');
+    if (registrationForm) {
+      registrationForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        registerUser();
+      });
+    }
+    
+    // Function to register a new user
+    function registerUser() {
+      // Get form values
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      // Simple validation
+      if (!username || !email || !password) {
+        showMessage('Please fill in all fields', 'error');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        showMessage('Passwords do not match', 'error');
+        return;
+      }
+      
+      // Check if user already exists
+      if (users.some(user => user.email === email)) {
+        showMessage('Email already registered', 'error');
+        return;
+      }
+      
+      if (users.some(user => user.username === username)) {
+        showMessage('Username already taken', 'error');
+        return;
+      }
+      
+      // Create user object
+      const newUser = {
+        id: generateUserId(),
+        username: username,
+        email: email,
+        password: hashPassword(password), // In a real app, use proper hashing
+        registrationDate: new Date().toISOString()
+      };
+      
+      // Simulate AJAX request
+      simulateAjaxRequest('POST', '/api/users', newUser)
+        .then(response => {
+          // Add user to array
+          users.push(newUser);
+          
+          // Save to localStorage
+          saveUsers();
+          
+          // Display success message
+          showMessage('Registration successful!', 'success');
+          
+          // Reset form
+          registrationForm.reset();
+          
+          // Update display
+          displayUsers();
+        })
+        .catch(error => {
+          showMessage('Error: ' + error, 'error');
+        });
+    }
+    
+    // Function to simulate AJAX request
+    function simulateAjaxRequest(method, url, data) {
+      return new Promise((resolve, reject) => {
+        // Simulate network delay
+        setTimeout(() => {
+          // Simulate success (90% of the time) or failure
+          if (Math.random() < 0.9) {
+            resolve({
+              status: 200,
+              data: { message: 'Operation successful', user: data }
+            });
+          } else {
+            reject('Server error. Please try again.');
+          }
+        }, 500); // 500ms delay to simulate network
+      });
+    }
+    
+    // Function to save users to localStorage
+    function saveUsers() {
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+    
+    // Function to display users in the HTML table
+    function displayUsers() {
+      const tableBody = document.getElementById('userTableBody');
+      if (!tableBody) return;
+      
+      // Clear existing rows
+      tableBody.innerHTML = '';
+      
+      // Add users to table
+      users.forEach(user => {
+        const row = document.createElement('tr');
+        
+        // Format date for display
+        const registrationDate = new Date(user.registrationDate);
+        const formattedDate = registrationDate.toLocaleDateString() + ' ' + 
+                              registrationDate.toLocaleTimeString();
+        
+        row.innerHTML = `
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${formattedDate}</td>
+          <td>
+            <button class="edit-btn" data-id="${user.id}">Edit</button>
+            <button class="delete-btn" data-id="${user.id}">Delete</button>
+          </td>
+        `;
+        
+        tableBody.appendChild(row);
+      });
+      
+      // Add event listeners for edit and delete buttons
+      addActionButtonListeners();
+    }
+    
+    // Function to add event listeners to action buttons
+    function addActionButtonListeners() {
+      // Delete button event listeners
+      document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function() {
+          const userId = this.getAttribute('data-id');
+          deleteUser(userId);
+        });
+      });
+      
+      // Edit button event listeners
+      document.querySelectorAll('.edit-btn').forEach(button => {
+        button.addEventListener('click', function() {
+          const userId = this.getAttribute('data-id');
+          editUser(userId);
+        });
+      });
+    }
+    
+    // Function to delete a user
+    function deleteUser(userId) {
+      // Find user
+      const userIndex = users.findIndex(user => user.id === userId);
+      if (userIndex === -1) return;
+      
+      const user = users[userIndex];
+      
+      // Confirm deletion
+      if (!confirm(`Are you sure you want to delete ${user.username}?`)) {
+        return;
+      }
+      
+      // Simulate AJAX request
+      simulateAjaxRequest('DELETE', `/api/users/${userId}`)
+        .then(response => {
+          // Remove user from array
+          users.splice(userIndex, 1);
+          
+          // Save to localStorage
+          saveUsers();
+          
+          // Show message
+          showMessage(`User ${user.username} deleted successfully`, 'success');
+          
+          // Update display
+          displayUsers();
+        })
+        .catch(error => {
+          showMessage('Error: ' + error, 'error');
+        });
+    }
+    
+    // Function to edit a user (opens form with user data)
+    function editUser(userId) {
+      // Find user
+      const user = users.find(user => user.id === userId);
+      if (!user) return;
+      
+      // Fill form with user data
+      document.getElementById('username').value = user.username;
+      document.getElementById('email').value = user.email;
+      
+      // Change form submit button to update
+      const registerBtn = document.getElementById('registerBtn');
+      registerBtn.textContent = 'Update User';
+      registerBtn.setAttribute('data-editing', userId);
+      
+      // Change form submission handler
+      registrationForm.removeEventListener('submit', registerUser);
+      registrationForm.addEventListener('submit', function updateHandler(e) {
+        e.preventDefault();
+        
+        // Get updated values
+        const updatedUsername = document.getElementById('username').value.trim();
+        const updatedEmail = document.getElementById('email').value.trim();
+        const updatedPassword = document.getElementById('password').value;
+        
+        // Update user object
+        if (updatedUsername) user.username = updatedUsername;
+        if (updatedEmail) user.email = updatedEmail;
+        if (updatedPassword) user.password = hashPassword(updatedPassword);
+        
+        // Simulate AJAX request
+        simulateAjaxRequest('PUT', `/api/users/${userId}`, user)
+          .then(response => {
+            // Save to localStorage
+            saveUsers();
+            
+            // Reset form
+            registrationForm.reset();
+            registerBtn.textContent = 'Register';
+            registerBtn.removeAttribute('data-editing');
+            
+            // Reset event listeners
+            registrationForm.removeEventListener('submit', updateHandler);
+            registrationForm.addEventListener('submit', function(event) {
+              event.preventDefault();
+              registerUser();
+            });
+            
+            // Show success message
+            showMessage(`User ${user.username} updated successfully`, 'success');
+            
+            // Update display
+            displayUsers();
+          })
+          .catch(error => {
+            showMessage('Error: ' + error, 'error');
+          });
+      });
+    }
+    
+    // Helper function to display messages
+    function showMessage(text, type = 'info') {
+      const messageElement = document.getElementById('message');
+      if (!messageElement) return;
+      
+      messageElement.textContent = text;
+      messageElement.className = type;
+      
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        messageElement.textContent = '';
+        messageElement.className = '';
+      }, 3000);
+    }
+    
+    // Helper function to generate a unique ID
+    function generateUserId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+    
+    // Helper function to "hash" passwords
+    // NOTE: This is not secure and is just for demonstration
+    // In a real application, use a proper hashing library
+    function hashPassword(password) {
+      return btoa(password); // Base64 encoding (NOT secure)
+    }
+  });
+  
+  // Real AJAX Implementation (using Fetch API)
+  // This function could replace simulateAjaxRequest for actual server communication
+  function performAjaxRequest(method, url, data = null) {
+    const options = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    if (data && (method === 'POST' || method === 'PUT')) {
+      options.body = JSON.stringify(data);
+    }
+    
+    return fetch(url, options)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      });
+  }
